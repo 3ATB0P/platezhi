@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Платежи за месяц</title>
+<style>
+:root{color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f6f8;--card:#fff;--ink:#1b1f2a;--mut:#5b6770;--navy:#1f3864;--band:#d9e2ea;--bandink:#16324a;--line:#cdd5dc;--in:#fff2cc;--inink:#0000ff;--chg:#c0362c;--ok:#2f7d5b;--part:#c77700;--paid:#9a9a9a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171d;--card:#1b232c;--ink:#e8edf1;--mut:#9aa7b2;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#33414e;--in:#4a3f12;--inink:#8fb4ff;--chg:#ff6b5e;--ok:#5fcf9c;--part:#f0a64a;--paid:#6f7a84}}
+:root[data-theme="dark"]{--bg:#12171d;--card:#1b232c;--ink:#e8edf1;--mut:#9aa7b2;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#33414e;--in:#4a3f12;--inink:#8fb4ff;--chg:#ff6b5e;--ok:#5fcf9c;--part:#f0a64a;--paid:#6f7a84}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:12px}
+h1{font-size:20px;margin:6px 0 2px}
+.note{color:var(--mut);font-size:13px;margin:0 0 8px}
+h2{background:var(--band);color:var(--bandink);font-size:16px;margin:14px 0 0;padding:9px 12px;border-radius:8px 8px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px}
+.row{padding:10px 12px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.top{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.top small{color:var(--mut);font-weight:400}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:8px 0}
+input[type=text]{width:100%;font:inherit;font-size:18px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--in);color:var(--inink);text-align:right}
+button,.btn{font:inherit;border:0;border-radius:8px;background:var(--navy);color:#fff;padding:0 14px;min-height:46px;display:inline-flex;align-items:center;justify-content:center}
+.sub{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.new{font-weight:700;font-size:18px}
+.new.chg{color:var(--chg)}
+.chk{display:flex;gap:8px;align-items:center}
+input[type=checkbox]{width:24px;height:24px;accent-color:var(--ok)}
+.paid .top,.paid .new,.paid .was{color:var(--paid);text-decoration:line-through}
+.paid .new.chg{color:var(--paid)}
+.was{color:var(--mut)}
+.tot .row{display:grid;gap:4px}
+.st{font-weight:700}
+.st.ok{color:var(--ok)}
+.st.part{color:var(--part)}
+.chkrow{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:15px}
+.chkrow span:nth-child(even){text-align:right}
+.cash{margin:18px 0 8px;text-align:center;color:#ff0000;font-weight:700;font-size:18px}
+#ov{position:fixed;inset:0;background:#000;z-index:9;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#ov[hidden]{display:none}
+#ov video{flex:1;min-height:0;width:100%;object-fit:cover}
+#msg{color:#fff;text-align:center;padding:12px}
+.bar{display:flex;gap:10px;padding:0 12px 12px}
+.bar>*{flex:1}
+.bar input{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Платежи за месяц</h1>
+<p class="note">Введите суммы в жёлтые поля или отсканируйте QR квитанции. Округление вверх до 100 руб: основной платёж — разница на ЖКХ Григорьева; платёж Порфирьева — разница на капремонт общежития. Данные нигде не сохраняются.</p>
+<div id="app"></div>
+<p class="cash">ВЫБЕРИ КАТЕГОРИИ КЭШБЭК</p>
+</main>
+
+<div id="ov" hidden>
+  <video id="vid" playsinline muted></video>
+  <div id="msg"></div>
+  <div style="color:#9aa7b2;text-align:center;font-size:13px;padding:0 12px 10px">На компьютере: скриншот QR (Win+Shift+S), вернитесь сюда, кликните по чёрному окну и нажмите Ctrl+V. Или перетащите сюда PDF.</div>
+  <div class="bar">
+    <label class="btn">Снять QR<input id="file" type="file" accept="image/*" capture="environment"></label>
+    <label class="btn">PDF или фото<input id="file2" type="file" accept="application/pdf,image/*"></label>
+    <button id="clip" type="button">Из буфера</button>
+    <button id="close" type="button">Закрыть</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const BLOCKS=[
+ ['Григорьев',[['gy','Григорьев Квартира','ЖКХ'],['gm','Григорьев Квартира','Мусор']]],
+ ['Порфирьев',[['py','Порфирьев Квартира','ЖКХ'],['pk','Порфирьев Квартира','Капремонт'],['pe','Порфирьев Квартира','Энергосбыт'],['po','Порфирьев Общежитие','ЖКХ']]],
+ ['Капремонт (через Альфа Банк)',[['gk','Григорьев Квартира','Капремонт'],['pc','Порфирьев Общежитие','Капремонт']]]
+];
+const KS=['gy','gm','py','pk','pe','po'], KP=['py','pk','pe','po','pc'], KG=['gy','gm','gk'];
+const TOT=[['Основной платёж (ОТП Банк)',KS],['Порфирьев с капремонтом',KP],['Григорьев с капремонтом',KG]];
+const v={}, paid={}, R={}, T=[], C={};
+const c=k=>v[k]||0, sum=(ks,o)=>ks.reduce((a,k)=>a+o(k),0), up=k=>Math.ceil(k/1e4)*1e4;
+const f=k=>(k/100).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₽';
+const el=(t,cls,h)=>{const e=document.createElement(t);if(cls)e.className=cls;if(h!=null)e.innerHTML=h;return e};
+const app=document.getElementById('app');
+
+BLOCKS.forEach(([h,rows])=>{
+  app.append(el('h2',0,h));
+  const card=el('div','card');
+  rows.forEach(([k,obj,art])=>{
+    const row=el('div','row');
+    row.innerHTML=`<div class="top"><span>${obj} <small>${art}</small></span><span class="was"></span></div>
+      <div class="ctl"><input type="text" inputmode="decimal" placeholder="0,00" aria-label="${obj} ${art}"><button type="button" aria-label="Сканировать QR">📷 QR</button></div>
+      <div class="sub"><span class="new"></span><label class="chk"><input type="checkbox"> Оплачено</label></div>`;
+    const inp=row.querySelector('input[type=text]');
+    inp.oninput=()=>{const x=parseFloat(inp.value.replace(/\s/g,'').replace(',','.'));v[k]=isNaN(x)?0:Math.round(x*100);upd()};
+    row.querySelector('button').onclick=()=>scan(k);
+    row.querySelector('input[type=checkbox]').onchange=e=>{paid[k]=e.target.checked;upd()};
+    R[k]={row,inp,was:row.querySelector('.was'),nw:row.querySelector('.new')};
+    card.append(row);
+  });
+  app.append(card);
+});
+
+app.append(el('h2',0,'Итоги'));
+const tc=el('div','card tot');
+TOT.forEach(([name])=>{
+  const row=el('div','row');
+  row.innerHTML=`<div class="top"><span>${name}</span><span class="was"></span></div>
+    <div class="sub"><span class="new"></span><label class="chk"><input type="checkbox" disabled> Оплачено</label></div>`;
+  T.push({row,was:row.querySelector('.was'),nw:row.querySelector('.new'),cb:row.querySelector('input')});
+  tc.append(row);
+});
+app.append(tc);
+
+app.append(el('h2',0,'Проверка оплаты'));
+const pc=el('div','card');
+['Григорьев','Порфирьев','Всего'].forEach(n=>{
+  const row=el('div','row');
+  row.innerHTML=`<div class="top"><span>${n}</span><span class="st"></span></div>
+    <div class="chkrow"><span>К оплате</span><span></span><span>Отмечено</span><span></span><span>Осталось</span><span></span></div>`;
+  C[n]={st:row.querySelector('.st'),s:[...row.querySelectorAll('.chkrow span')].filter((_,i)=>i%2)};
+  pc.append(row);
+});
+app.append(pc);
+
+function upd(){
+  const S=sum(KS,c), P=sum(KP,c), n={};
+  [...KP,...KS,'gk'].forEach(k=>n[k]=c(k));
+  n.gy+=up(S)-S; n.pc+=up(P)-P;
+  for(const k in R){const r=R[k],ch=n[k]!==c(k);
+    r.was.textContent=c(k)?'было '+f(c(k)):'';
+    r.nw.textContent=f(n[k]); r.nw.classList.toggle('chg',ch);
+    r.row.classList.toggle('paid',!!paid[k]);}
+  const olds=[S,P,sum(KG,c)];
+  TOT.forEach(([,ks],i)=>{const t=T[i],all=ks.every(k=>paid[k]);
+    t.was.textContent=olds[i]?'было '+f(olds[i]):'';
+    t.nw.textContent=f(sum(ks,k=>n[k])); t.nw.classList.toggle('chg',sum(ks,k=>n[k])!==olds[i]);
+    t.cb.checked=all; t.row.classList.toggle('paid',all);});
+  const due={Григорьев:sum(KG,k=>n[k]),Порфирьев:sum(KP,k=>n[k])};
+  const got={Григорьев:sum(KG,k=>paid[k]?n[k]:0),Порфирьев:sum(KP,k=>paid[k]?n[k]:0)};
+  due['Всего']=due.Григорьев+due.Порфирьев; got['Всего']=got.Григорьев+got.Порфирьев;
+  for(const nm in C){const left=due[nm]-got[nm],
+    s=!got[nm]?['Не оплачено','']:left?['Частично','part']:['Всё оплачено','ok'];
+    C[nm].st.textContent=s[0]; C[nm].st.className='st '+s[1];
+    C[nm].s[0].textContent=f(due[nm]); C[nm].s[1].textContent=f(got[nm]); C[nm].s[2].textContent=f(left);}
+}
+upd();
+
+/* ---- QR: BarcodeDetector + камера ---- */
+const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg');
+let det, stream, target, timer;
+// Платёжный QR (ГОСТ Р 56042): ST00012|...|Sum=317446|... — сумма в копейках
+function parseSum(t){
+  const m=t.match(/(?:^|[|;&?])\s*(?:Sum|Summ|Summa|Amount|Сумма)\s*=\s*([\d.,]+)/i); if(!m)return null;
+  const s=m[1]; return /[.,]/.test(s)?Math.round(parseFloat(s.replace(',','.'))*100):parseInt(s,10);
+}
+function got(text){
+  const k=parseSum(text); if(k==null){msg.textContent='В QR нет суммы. Содержимое: '+text.slice(0,160);return false}
+  v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); stop(); return true;
+}
+function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true}
+async function scan(k){
+  target=k; ov.hidden=false; ov.tabIndex=-1; ov.style.outline='none'; ov.focus(); msg.textContent='Наведите камеру на QR платёжки';
+  msg.textContent='Запускаю камеру…';
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'нет доступа к камере на этой странице'};
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    vid.srcObject=stream; await vid.play(); msg.textContent='Наведите камеру на QR платёжки'; loop();
+  }catch(e){msg.textContent='Живая камера недоступна ('+(e.name||'ошибка')+'). Выберите PDF квитанции кнопкой «PDF или фото».'}
+}
+const cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:true});
+// Сначала встроенный BarcodeDetector (если есть), затем jsQR на нескольких размерах кадра
+async function decode(src,w,h,sizes){
+  if('BarcodeDetector' in window){try{det=det||new BarcodeDetector({formats:['qr_code']});const r=await det.detect(src);if(r.length)return r[0].rawValue}catch(e){}}
+  if(typeof jsQR!=='function'&&typeof ZXing==='undefined')throw {name:'не загрузился модуль QR, нужен интернет'};
+  for(const m of sizes){const s=Math.min(4,m/Math.max(w,h)),iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';cx.drawImage(src,pd,pd,iw,ih);
+    if(typeof jsQR==='function'){const d0=cx.getImageData(0,0,cv.width,cv.height),q0=jsQR(d0.data,d0.width,d0.height,{inversionAttempts:'attemptBoth'});if(q0)return String.fromCharCode.apply(null,q0.binaryData)||q0.data}
+    if(typeof ZXing!=='undefined'){try{const hs=new Map();hs.set(ZXing.DecodeHintType.TRY_HARDER,true);hs.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE]);
+      const rd=new ZXing.MultiFormatReader();rd.setHints(hs);return rd.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText()}catch(e){}}
+}
+  return null;
+}
+function loop(){timer=setTimeout(async()=>{
+  try{if(vid.videoWidth){const t=await decode(vid,vid.videoWidth,vid.videoHeight,[1000]);if(t&&got(t))return}}catch(e){}
+  if(stream)loop()},300)}
+document.getElementById('close').onclick=stop;
+// PDF: рендерим страницы в картинку высокого разрешения и ищем QR
+let dbg='';
+async function decodePdf(file){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  for(let p=1;p<=Math.min(pdf.numPages,3);p++){
+    const page=await pdf.getPage(p), w0=page.getViewport({scale:1}).width;
+    for(const w of [3200,2200]){
+      const vp=page.getViewport({scale:w/w0}), c=document.createElement('canvas');
+      c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+      await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+      dbg=pdf.numPages+' стр., '+c.width+'x'+c.height; msg.textContent='Ищу QR в PDF… '+dbg;
+      const t=await decode(c,c.width,c.height,[Math.max(c.width,c.height)]); if(t)return t;
+    }
+  }
+  return null;
+}
+const onPhoto=async e=>{
+  const fl=e.target.files[0]; e.target.value=''; if(!fl){msg.textContent='Браузер не передал снимок. Откройте страницу в Chrome и попробуйте «PDF или фото».';return}
+  msg.textContent='Читаю фото… ('+Math.round(fl.size/1024)+' КБ)';
+  try{const isPdf=/pdf/i.test(fl.type+fl.name);let t;
+    if(isPdf)t=await decodePdf(fl); else{const bm=await createImageBitmap(fl);dbg=bm.width+'x'+bm.height;const N=Math.max(bm.width,bm.height);t=await decode(bm,bm.width,bm.height,[N,N*.75,N*.5,N*1.5,N*2,1600])}
+    if(!t)msg.textContent='QR не найден ('+dbg+'). Увеличьте QR на экране (масштаб PDF 300% и больше) и сделайте скриншот заново.'; else got(t)}
+  catch(err){msg.textContent='Не удалось прочитать фото ('+(err.name||'ошибка')+').'}
+};
+document.getElementById('file').onchange=onPhoto;
+document.getElementById('file2').onchange=onPhoto;
+document.onpaste=e=>{if(ov.hidden)return;const it=[...(e.clipboardData?e.clipboardData.items:[])].find(i=>i.type.startsWith('image/'));
+  if(it)onPhoto({target:{files:[it.getAsFile()],value:''}}); else msg.textContent='В буфере нет картинки. Сначала сделайте скриншот (Win+Shift+S).'};
+ov.ondragover=e=>e.preventDefault();
+ov.ondrop=e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)onPhoto({target:{files:[f],value:''}})};
+document.getElementById('clip').onclick=async()=>{
+  try{for(const it of await navigator.clipboard.read()){const ty=it.types.find(t=>t.startsWith('image/'));
+    if(ty){onPhoto({target:{files:[new File([await it.getType(ty)],'clip.png',{type:ty})],value:''}});return}}
+    msg.textContent='В буфере нет картинки.'}
+  catch(e){msg.textContent='Нет доступа к буферу ('+(e.name||'ошибка')+'). Кликните по чёрному окну и нажмите Ctrl+V.'}};
+</script>
+</body>
+</html>

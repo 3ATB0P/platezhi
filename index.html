@@ -55,21 +55,22 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 </main>
 
 <div id="ov" hidden>
-  <video id="vid" playsinline muted autoplay></video>
+  <video id="vid" playsinline muted></video>
   <div id="msg"></div>
   <button id="close" type="button">Закрыть</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 <script>
 const BLOCKS=[
- ['Тракторостроителей 8А',[['gy','Тракторостроителей 8А','ЖКХ'],['gm','Тракторостроителей 8А','Ситиматик']]],
- ['324-ой Стрелковой + Общежитие',[['py','324-ой Стрелковой','ЖКХ'],['pk','324-ой Стрелковой','Капремонт'],['pe','324-ой Стрелковой','Энергосбыт'],['po','Общежитие','ЖКХ']]],
- ['Капремонт (через Альфа Банк)',[['gk','Тракторостроителей 8А','Капремонт'],['pc','Общежитие','Капремонт']]]
+ ['Тракторостроителей 8А',[['gy','Тракторостр 8А','ЖКХ'],['gm','Тракторостр 8А','Ситиматик']]],
+ ['324-я Стрелковая + Общежитие',[['py','324я Стрелков','ЖКХ'],['pk','324я Стрелков','Капремонт'],['pe','324я Стрелков','Энергосбыт'],['po','Общежитие','ЖКХ']]],
+ ['Капремонт (через Альфа Банк)',[['gk','Тракторостр 8А','Капремонт'],['pc','Общежитие','Капремонт']]]
 ];
 const KS=['gy','gm','py','pk','pe','po'], KP=['py','pk','pe','po','pc'], KG=['gy','gm','gk'];
-const TOT=[['Основной платёж (ОТП Банк)',KS],['324-ой Стрелк + Общеж + капр',KP],['Тракторостроителей 8А + капр',KG]];
-const v={}, paid={}, R={}, T=[], C={}, LAB={Григорьев:'Тракторостроителей 8А',Порфирьев:'324-ой Стрелков + Общежитие'};
+const TOT=[['Основной платёж (ОТП Банк)',KS],['324я Стрелк + Общеж + капр',KP],['Тракторостр 8А + капремонт',KG]];
+const v={}, paid={}, R={}, T=[], C={}, LAB={Григорьев:'Тракторостроителей 8А',Порфирьев:'324я Стрелков + Общежитие'};
 const c=k=>v[k]||0, sum=(ks,o)=>ks.reduce((a,k)=>a+o(k),0), up=k=>Math.ceil(k/1e4)*1e4;
 const f=k=>(k/100).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
 const el=(t,cls,h)=>{const e=document.createElement(t);if(cls)e.className=cls;if(h!=null)e.innerHTML=h;return e};
@@ -155,12 +156,17 @@ function got(text){
 function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true}
 async function decode(){
   if('BarcodeDetector' in window){try{det=det||new BarcodeDetector({formats:['qr_code']});const r=await det.detect(vid);if(r.length)return r[0].rawValue}catch(e){}}
-  if(typeof jsQR==='function'&&vid.videoWidth){
-    const s=Math.min(1,1000/Math.max(vid.videoWidth,vid.videoHeight));
-    cv.width=Math.round(vid.videoWidth*s);cv.height=Math.round(vid.videoHeight*s);cx.drawImage(vid,0,0,cv.width,cv.height);
-    const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});
-    // binaryData: полный текст, в т.ч. для кодировки cp1251 (q.data для неё пустой)
-    if(q)return String.fromCharCode.apply(null,q.binaryData)||q.data;
+  const w=vid.videoWidth,h=vid.videoHeight; if(!w)return null;
+  for(const m of [1000,700]){ // два масштаба кадра + белое поле вокруг (тихая зона QR)
+    const s=Math.min(1,m/Math.max(w,h)),iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
+    cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(vid,pd,pd,iw,ih);
+    if(typeof jsQR==='function'){
+      const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});
+      // binaryData: полный текст, в т.ч. для кодировки cp1251 (q.data для неё пустой)
+      if(q)return String.fromCharCode.apply(null,q.binaryData)||q.data;
+    }
+    if(typeof ZXing!=='undefined'){try{const hs=new Map();hs.set(ZXing.DecodeHintType.TRY_HARDER,true);hs.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE]);
+      const rd=new ZXing.MultiFormatReader();rd.setHints(hs);return rd.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText()}catch(e){}}
   }
   return null;
 }

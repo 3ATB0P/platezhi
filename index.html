@@ -44,12 +44,14 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 #ov[hidden]{display:none}
 #ov video{flex:1;min-height:0;width:100%;object-fit:cover}
 #msg{color:#fff;text-align:center;padding:12px}
+#stat{color:#9aa7b2;text-align:center;font-size:12px;padding:0 12px 8px}
+#zoom{margin:0 16px 10px;width:calc(100% - 32px)}
 #close{margin:0 12px 12px;min-height:46px;border:0;border-radius:8px;background:var(--navy);color:#fff;font:inherit}
 </style>
 </head>
 <body>
 <main>
-<h1>Оплата коммунальных платежей Григорьевых и Порфирьевых с округлением</h1>
+<h1>Оплата коммунальных платежей с округлением</h1>
 <p class="note">Суммы по квитанциям вводятся в жёлтые ячейки столбца «Было».<br>Округление вверх:<br>1) основной платёж (всё, кроме блока «Капремонт»): разница на ЖКХ Григорьева;<br>2) платёж Порфирьева: разница на капремонт общежития.</p>
 <div id="app"></div>
 <p class="cash">ВЫБЕРИ КАТЕГОРИИ КЭШБЭК</p>
@@ -58,11 +60,12 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 <div id="ov" hidden>
   <video id="vid" playsinline muted></video>
   <div id="msg"></div>
+  <div id="stat"></div>
+  <input id="zoom" type="range" hidden aria-label="Приближение">
   <button id="close" type="button">Закрыть</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 <script>
 const BLOCKS=[
  ['Тракторостроителей 8А',[['gy','Тракторостр 8А','ЖКХ'],['gm','Тракторостр 8А','Ситиматик']]],
@@ -142,9 +145,10 @@ function upd(){
 upd();
 
 /* ---- Живая камера: встроенный BarcodeDetector, запасной jsQR ---- */
-const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg');
+const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg'), stat=document.getElementById('stat'), zoomEl=document.getElementById('zoom');
+let statBase='';
 const cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:true});
-let det, stream, target, timer, t0=0;
+let det, stream, target, timer, t0=0, tick=0;
 // Платёжный QR (ГОСТ Р 56042): ST00011|...|Sum=238373|... — сумма в копейках
 function parseSum(t){
   const m=t.match(/(?:^|[|;&?])\s*(?:Sum|Summ|Summa|Amount|Сумма)\s*=\s*([\d.,]+)/i); if(!m)return null;
@@ -154,33 +158,37 @@ function got(text){
   const k=parseSum(text); if(k==null){msg.textContent='В QR нет суммы: '+text.slice(0,100);return false}
   v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); stop(); return true;
 }
-function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true}
+function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true}
 async function decode(){
   if('BarcodeDetector' in window){try{det=det||new BarcodeDetector({formats:['qr_code']});const r=await det.detect(vid);if(r.length)return r[0].rawValue}catch(e){}}
   const w=vid.videoWidth,h=vid.videoHeight; if(!w)return null;
-  for(const m of [1000,1400,700]){ // три масштаба кадра + белое поле вокруг (тихая зона QR)
-    const s=Math.min(1,m/Math.max(w,h)),iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
+  for(const m of [tick++%2?0.68:0.91]){ // масштабы кадра чередуются (с экрана лучше всего читаются ~0,9 и ~0,7 от кадра) + белое поле вокруг (тихая зона QR)
+    const s=m,iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
     cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(vid,pd,pd,iw,ih);
     if(typeof jsQR==='function'){
-      const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});
+      const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'dontInvert'});
       // binaryData: полный текст, в т.ч. для кодировки cp1251 (q.data для неё пустой)
       if(q)return String.fromCharCode.apply(null,q.binaryData)||q.data;
     }
-    if(m===1000&&typeof ZXing!=='undefined'){try{const hs=new Map();hs.set(ZXing.DecodeHintType.TRY_HARDER,true);hs.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE]);
-      const rd=new ZXing.MultiFormatReader();rd.setHints(hs);return rd.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText()}catch(e){}}
   }
   return null;
 }
 function loop(){timer=setTimeout(async()=>{
-  try{const t=await decode();if(t&&got(t))return}catch(e){}
-  if(stream){if(Date.now()-t0>6000&&msg.textContent.indexOf('Наведите')===0)msg.textContent='Не читается? Держите телефон ровно, в 20 см от QR, без бликов; QR должен быть чётким.';loop()}},300)}
+  try{const t1=performance.now(),t=await decode();stat.textContent=statBase+' · '+Math.round(performance.now()-t1)+' мс/кадр';if(t&&got(t))return}catch(e){}
+  if(stream){if(Date.now()-t0>6000&&msg.textContent.indexOf('Наведите')===0)msg.textContent='Не читается? Держите телефон ровно, в 20 см от QR, без бликов; QR должен быть чётким.';loop()}},40)}
 async function scan(k){
   target=k; t0=Date.now(); ov.hidden=false; msg.textContent='Запускаю камеру…';
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'камера недоступна на этой странице'};
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
     try{await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
-    vid.srcObject=stream; await vid.play(); msg.textContent='Наведите камеру на QR платёжки'; loop();
+    vid.srcObject=stream; await vid.play(); msg.textContent='Наведите камеру на QR платёжки';
+    const tr=stream.getVideoTracks()[0], cap=tr.getCapabilities?tr.getCapabilities():{}, st=tr.getSettings?tr.getSettings():{};
+    statBase=vid.videoWidth+'×'+vid.videoHeight+' · встроенный сканер: '+(('BarcodeDetector' in window)?'да':'нет');
+    stat.textContent=statBase;
+    if(cap.zoom){zoomEl.min=cap.zoom.min;zoomEl.max=cap.zoom.max;zoomEl.step=cap.zoom.step||0.1;zoomEl.value=st.zoom||cap.zoom.min;zoomEl.hidden=false;
+      zoomEl.oninput=()=>tr.applyConstraints({advanced:[{zoom:+zoomEl.value}]}).catch(()=>{})}
+    loop();
   }catch(e){msg.textContent='Нет доступа к камере ('+(e.name||'ошибка')+'). Разрешите камеру в браузере.'}
 }
 document.getElementById('close').onclick=stop;

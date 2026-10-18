@@ -45,7 +45,9 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 #ov video{flex:1;min-height:0;width:100%;object-fit:cover}
 #msg{color:#fff;text-align:center;padding:12px}
 #stat{color:#9aa7b2;text-align:center;font-size:12px;padding:0 12px 8px}
-#zoom{margin:0 16px 10px;width:calc(100% - 32px)}
+#zoom{margin:0 16px 30px;width:calc(100% - 32px)}
+#snap{margin:0 12px 10px;min-height:46px;border:0;border-radius:8px;background:#2f7d5b;color:#fff;font:inherit}
+#snap[hidden]{display:none}
 #close{margin:0 12px 12px;min-height:46px;border:0;border-radius:8px;background:var(--navy);color:#fff;font:inherit}
 </style>
 </head>
@@ -62,6 +64,7 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
   <div id="msg"></div>
   <div id="stat"></div>
   <input id="zoom" type="range" hidden aria-label="Приближение">
+  <button id="snap" type="button" hidden>Снимок высокого разрешения</button>
   <button id="close" type="button">Закрыть</button>
 </div>
 
@@ -145,8 +148,8 @@ function upd(){
 upd();
 
 /* ---- Живая камера: встроенный BarcodeDetector, запасной jsQR ---- */
-const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg'), stat=document.getElementById('stat'), zoomEl=document.getElementById('zoom');
-let statBase='';
+const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg'), stat=document.getElementById('stat'), zoomEl=document.getElementById('zoom'), snapEl=document.getElementById('snap');
+let statBase='', ic=null;
 const cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:true});
 let det, stream, target, timer, t0=0, tick=0;
 // Платёжный QR (ГОСТ Р 56042): ST00011|...|Sum=238373|... — сумма в копейках
@@ -158,9 +161,11 @@ function got(text){
   const k=parseSum(text); if(k==null){msg.textContent='В QR нет суммы: '+text.slice(0,100);return false}
   v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); stop(); return true;
 }
-function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true}
+function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true;snapEl.hidden=true;ic=null}
+// из найденных кодов берём тот, где есть Sum=; если формат не QR — помечаем его
+function pick(r){const b=r.find(x=>/sum\s*=/i.test(x.rawValue))||r[0];return b.format&&b.format!=='qr_code'?'['+b.format+'] '+b.rawValue:b.rawValue}
 async function decode(){
-  if('BarcodeDetector' in window){try{det=det||new BarcodeDetector({formats:['qr_code']});const r=await det.detect(vid);if(r.length)return r[0].rawValue}catch(e){}}
+  if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(vid);if(r.length)return pick(r)}catch(e){}}
   const w=vid.videoWidth,h=vid.videoHeight; if(!w)return null;
   for(const m of [tick++%2?0.68:0.91]){ // масштабы кадра чередуются (с экрана лучше всего читаются ~0,9 и ~0,7 от кадра) + белое поле вокруг (тихая зона QR)
     const s=m,iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
@@ -188,8 +193,24 @@ async function scan(k){
     stat.textContent=statBase;
     if(cap.zoom){zoomEl.min=cap.zoom.min;zoomEl.max=cap.zoom.max;zoomEl.step=cap.zoom.step||0.1;zoomEl.value=st.zoom||cap.zoom.min;zoomEl.hidden=false;
       zoomEl.oninput=()=>tr.applyConstraints({advanced:[{zoom:+zoomEl.value}]}).catch(()=>{})}
+    if('ImageCapture' in window){ic=new ImageCapture(tr);snapEl.hidden=false;snapEl.onclick=shot}
     loop();
   }catch(e){msg.textContent='Нет доступа к камере ('+(e.name||'ошибка')+'). Разрешите камеру в браузере.'}
+}
+// Снимок в максимальном разрешении камеры (намного чётче видео 1920×1080) — для упрямых кодов
+async function shot(){
+  if(!ic)return; msg.textContent='Снимаю в высоком разрешении…';
+  try{
+    let opt={};try{const c=await ic.getPhotoCapabilities();if(c.imageWidth&&c.imageHeight)opt={imageWidth:c.imageWidth.max,imageHeight:c.imageHeight.max}}catch(e){}
+    const bm=await createImageBitmap(await ic.takePhoto(opt)); let t=null;
+    if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);if(r.length)t=pick(r)}catch(e){}}
+    if(!t&&typeof jsQR==='function'){for(const m of [2600,1800]){
+      const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
+      cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bm,pd,pd,iw,ih);
+      const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'dontInvert'});
+      if(q){t=String.fromCharCode.apply(null,q.binaryData)||q.data;break}}}
+    if(!t)msg.textContent='На снимке код не найден. Приблизьте ползунком и повторите.'; else got(t);
+  }catch(e){msg.textContent='Снимок не удался ('+(e.name||'ошибка')+').'}
 }
 document.getElementById('close').onclick=stop;
 </script>

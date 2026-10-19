@@ -149,7 +149,7 @@ upd();
 
 /* ---- Живая камера: встроенный BarcodeDetector, запасной jsQR ---- */
 const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg'), stat=document.getElementById('stat'), zoomEl=document.getElementById('zoom'), snapEl=document.getElementById('snap');
-let statBase='', ic=null;
+let statBase='', ic=null, seenInfo='';
 const cv=document.createElement('canvas'), cx=cv.getContext('2d',{willReadFrequently:true});
 let det, stream, target, timer, t0=0, tick=0;
 // Платёжный QR (ГОСТ Р 56042): ST00011|...|Sum=238373|... — сумма в копейках
@@ -163,9 +163,25 @@ function got(text){
 }
 function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true;snapEl.hidden=true;ic=null}
 // из найденных кодов берём тот, где есть Sum=; если формат не QR — помечаем его
+// Встроенный сканер код видит, но текст в старой кодировке (cp1251, ST00011) отдаёт пустым или кракозябрами:
+// вырезаем область кода и читаем сырые байты через jsQR
+function cropRead(src,sw,sh,bb){
+  if(typeof jsQR!=='function'||!bb)return null;
+  const mx=bb.width*.15,my=bb.height*.15,x=Math.max(0,bb.x-mx),y=Math.max(0,bb.y-my),w=Math.min(sw-x,bb.width+2*mx),h=Math.min(sh-y,bb.height+2*my);
+  for(const m of [900,1200,700]){
+    const s=m/Math.max(w,h),iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
+    cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(src,x,y,w,h,pd,pd,iw,ih);
+    const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'dontInvert'});
+    if(q)return String.fromCharCode.apply(null,q.binaryData)||q.data;
+  }
+  return null;
+}
 function pick(r){const b=r.find(x=>/sum\s*=/i.test(x.rawValue))||r[0];return b.format&&b.format!=='qr_code'?'['+b.format+'] '+b.rawValue:b.rawValue}
 async function decode(){
-  if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(vid);if(r.length)return pick(r)}catch(e){}}
+  if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(vid);if(r.length){const t=pick(r);seenInfo=' · найдено: '+r.length+(t?'':' (текст пуст)');
+      if(t&&/sum\s*=/i.test(t))return t;
+      const c=cropRead(vid,vid.videoWidth,vid.videoHeight,(r.find(x=>!/sum\s*=/i.test(x.rawValue||''))||r[0]).boundingBox);
+      if(c)return c; if(t)return t}}catch(e){}}
   const w=vid.videoWidth,h=vid.videoHeight; if(!w)return null;
   for(const m of [tick++%2?0.68:0.91]){ // масштабы кадра чередуются (с экрана лучше всего читаются ~0,9 и ~0,7 от кадра) + белое поле вокруг (тихая зона QR)
     const s=m,iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
@@ -179,7 +195,7 @@ async function decode(){
   return null;
 }
 function loop(){timer=setTimeout(async()=>{
-  try{const t1=performance.now(),t=await decode();stat.textContent=statBase+' · '+Math.round(performance.now()-t1)+' мс/кадр';if(t&&got(t))return}catch(e){}
+  try{seenInfo='';const t1=performance.now(),t=await decode();stat.textContent=statBase+seenInfo+' · '+Math.round(performance.now()-t1)+' мс/кадр';if(t&&got(t))return}catch(e){}
   if(stream){if(Date.now()-t0>6000&&msg.textContent.indexOf('Наведите')===0)msg.textContent='Не читается? Держите телефон ровно, в 20 см от QR, без бликов; QR должен быть чётким.';loop()}},40)}
 async function scan(k){
   target=k; t0=Date.now(); ov.hidden=false; msg.textContent='Запускаю камеру…';
@@ -203,7 +219,7 @@ async function shot(){
   try{
     let opt={};try{const c=await ic.getPhotoCapabilities();if(c.imageWidth&&c.imageHeight)opt={imageWidth:c.imageWidth.max,imageHeight:c.imageHeight.max}}catch(e){}
     const bm=await createImageBitmap(await ic.takePhoto(opt)); let t=null;
-    if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);if(r.length)t=pick(r)}catch(e){}}
+    if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);if(r.length){t=pick(r);if(!(t&&/sum\s*=/i.test(t))){const c=cropRead(bm,bm.width,bm.height,r[0].boundingBox);if(c)t=c}}}catch(e){}}
     if(!t&&typeof jsQR==='function'){for(const m of [2600,1800]){
       const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
       cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bm,pd,pd,iw,ih);

@@ -230,7 +230,7 @@ async function shot(){
     let opt={};try{const c=await ic.getPhotoCapabilities();if(c.imageWidth&&c.imageHeight)opt={imageWidth:c.imageWidth.max,imageHeight:c.imageHeight.max}}catch(e){}
     const bm=await createImageBitmap(await ic.takePhoto(opt)); let t=null, nf='—';
     if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);nf=r.length;if(r.length){t=pick(r);if(!(t&&/sum\s*=/i.test(t))){const c=cropRead(bm,bm.width,bm.height,r[0].boundingBox);if(c)t=c}}}catch(e){nf='ошибка '+(e.name||'')}}
-    if(!t){for(const m of [2600,1800]){const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
+    if(!t&&typeof ZXingWASM!=='undefined'){for(const m of [2600,1800]){const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
       cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bm,pd,pd,iw,ih);
       const z=await zread(cx.getImageData(0,0,cv.width,cv.height));if(z){t=z;break}}}
     if(!t&&typeof jsQR==='function'){for(const [m,bl] of [[2600,0],[1800,0],[2600,1],[1800,1],[2600,2],[1800,2]]){

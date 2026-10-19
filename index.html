@@ -54,7 +54,7 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 </head>
 <body>
 <main>
-<h1>Оплата коммунальных платежей с округлением <small class="ver">v1 · 19.10</small></h1>
+<h1>Оплата коммунальных платежей с округлением <small class="ver">v2 · 19.10</small></h1>
 <p class="note">Суммы по квитанциям вводятся в жёлтые ячейки столбца «Было».<br>Округление вверх:<br>1) основной платёж (всё, кроме блока «Капремонт»): разница на ЖКХ Григорьева;<br>2) платёж Порфирьева: разница на капремонт общежития.</p>
 <div id="app"></div>
 <p class="cash">ВЫБЕРИ КАТЕГОРИИ КЭШБЭК</p>
@@ -70,6 +70,7 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 <script>
 const BLOCKS=[
  ['Тракторостроителей 8А',[['gy','Тракторостр 8А','ЖКХ'],['gm','Тракторостр 8А','Ситиматик']]],
@@ -164,6 +165,12 @@ function got(text){
 }
 function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true;snapEl.hidden=true;ic=null}
 // из найденных кодов берём тот, где есть Sum=; если формат не QR — помечаем его
+// zxing-wasm (ядро zxing-cpp): читает плотные QR с экрана и cp1251 надёжнее jsQR; берём сырые байты
+async function zread(img){
+  if(typeof ZXingWASM==='undefined')return null;
+  try{const r=await ZXingWASM.readBarcodes(img,{formats:['QRCode'],maxNumberOfSymbols:1,tryHarder:true});
+    if(r.length){const b=r[0].bytes;return b&&b.length?String.fromCharCode.apply(null,Array.from(b)):r[0].text}}catch(e){}
+  return null}
 // Встроенный сканер код видит, но текст в старой кодировке (cp1251, ST00011) отдаёт пустым или кракозябрами:
 // вырезаем область кода и читаем сырые байты через jsQR
 function cropRead(src,sw,sh,bb){
@@ -188,6 +195,7 @@ async function decode(){
   for(const m of [V[0]]){ // белое поле вокруг кадра (тихая зона QR)
     const s=m,iw=Math.round(w*s),ih=Math.round(h*s),pd=Math.round(Math.max(iw,ih)*0.08);
     cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.filter=V[1]?'blur('+V[1]+'px)':'none';cx.drawImage(vid,pd,pd,iw,ih);cx.filter='none';
+    const z=await zread(cx.getImageData(0,0,cv.width,cv.height)); if(z)return z;
     if(typeof jsQR==='function'){
       const d=cx.getImageData(0,0,cv.width,cv.height),q=jsQR(d.data,d.width,d.height,{inversionAttempts:'dontInvert'});
       // binaryData: полный текст, в т.ч. для кодировки cp1251 (q.data для неё пустой)
@@ -207,7 +215,7 @@ async function scan(k){
     try{await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]})}catch(e){}
     vid.srcObject=stream; await vid.play(); msg.textContent='Наведите камеру на QR платёжки';
     const tr=stream.getVideoTracks()[0], cap=tr.getCapabilities?tr.getCapabilities():{}, st=tr.getSettings?tr.getSettings():{};
-    statBase=vid.videoWidth+'×'+vid.videoHeight+' · встроенный сканер: '+(('BarcodeDetector' in window)?'да':'нет');
+    statBase=vid.videoWidth+'×'+vid.videoHeight+' · встроенный сканер: '+(('BarcodeDetector' in window)?'да':'нет')+' · zxing: '+((typeof ZXingWASM!=='undefined')?'да':'нет');
     stat.textContent=statBase;
     if(cap.zoom){zoomEl.min=cap.zoom.min;zoomEl.max=cap.zoom.max;zoomEl.step=cap.zoom.step||0.1;zoomEl.value=st.zoom||cap.zoom.min;zoomEl.hidden=false;
       zoomEl.oninput=()=>tr.applyConstraints({advanced:[{zoom:+zoomEl.value}]}).catch(()=>{})}
@@ -221,7 +229,10 @@ async function shot(){
   try{
     let opt={};try{const c=await ic.getPhotoCapabilities();if(c.imageWidth&&c.imageHeight)opt={imageWidth:c.imageWidth.max,imageHeight:c.imageHeight.max}}catch(e){}
     const bm=await createImageBitmap(await ic.takePhoto(opt)); let t=null, nf='—';
-    if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);nf=r.length;if(r.length){t=pick(r);if(!(t&&/sum\s*=/i.test(t))){const c=cropRead(bm,bm.width,bm.height,r[0].boundingBox);if(c)t=c}}}catch(e){}}
+    if('BarcodeDetector' in window){try{det=det||new BarcodeDetector();const r=await det.detect(bm);nf=r.length;if(r.length){t=pick(r);if(!(t&&/sum\s*=/i.test(t))){const c=cropRead(bm,bm.width,bm.height,r[0].boundingBox);if(c)t=c}}}catch(e){nf='ошибка '+(e.name||'')}}
+    if(!t){for(const m of [2600,1800]){const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
+      cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(bm,pd,pd,iw,ih);
+      const z=await zread(cx.getImageData(0,0,cv.width,cv.height));if(z){t=z;break}}}
     if(!t&&typeof jsQR==='function'){for(const [m,bl] of [[2600,0],[1800,0],[2600,1],[1800,1],[2600,2],[1800,2]]){
       const s=Math.min(1,m/Math.max(bm.width,bm.height)),iw=Math.round(bm.width*s),ih=Math.round(bm.height*s),pd=Math.round(Math.max(iw,ih)*0.08);
       cv.width=iw+2*pd;cv.height=ih+2*pd;cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.filter=bl?'blur('+bl+'px)':'none';cx.drawImage(bm,pd,pd,iw,ih);cx.filter='none';

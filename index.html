@@ -39,7 +39,7 @@ h2{background:var(--band);color:var(--bandink);font-size:16px;margin:16px 0 0;pa
 </head>
 <body>
 <main>
-<h1>Сканер QR-кодов платёжек <small class="ver">v5 · 20.10</small></h1>
+<h1>Сканер QR-кодов платёжек <small class="ver">v6 · 20.10</small></h1>
 <p class="tbl"><span id="tblst">Таблица: не подключена</span> · <a href="#" id="tblset">настроить</a></p>
 <div id="app"></div>
 <button id="clear" type="button">Очистить таблицу на новый месяц</button>
@@ -192,13 +192,15 @@ document.getElementById('close').onclick=stop;
 
 // Новый месяц: очищаем поля на странице и жёлтые ячейки «Было» в таблице
 document.getElementById('clear').onclick=async()=>{
-  if(!confirm('Очистить поля на странице'+(SU&&ST?' и все суммы «Было» в таблице':'')+'?'))return;
+  if(!confirm('Очистить поля на странице'+(SU&&ST?' и все суммы «Было» и отметки «Оплачено» в таблице':'')+'?'))return;
   for(const k in R)R[k].inp.value='';
   if(!SU||!ST){tbl('поля очищены');return}
   tbl('очищаю таблицу…');
-  const res=await Promise.all(Object.keys(R).map(k=>post({token:ST,key:k,value:null})));
-  const bad=res.filter(j=>!j.ok);
-  bad.length?tbl('ошибка при очистке: '+bad[0].error,'err'):tbl(res.some(j=>j.blind)?'очистка отправлена (без подтверждения)':'очищено ячеек: '+res.length,'ok');
+  const res=await Promise.all([...Object.keys(R).map(k=>post({token:ST,key:k,value:null})),post({token:ST,clearPaid:true})]);
+  const paid=res.pop(), bad=res.filter(j=>!j.ok);
+  if(bad.length)tbl('ошибка при очистке: '+bad[0].error,'err');
+  else if(!paid.ok)tbl(/неизвестная строка/.test(paid.error||'')?'суммы очищены, но для сброса «Оплачено» нужно обновить скрипт (инструкция, п. 9)':'суммы очищены, ошибка сброса «Оплачено»: '+paid.error,'err');
+  else tbl(res.concat(paid).some(j=>j.blind)?'очистка отправлена (без подтверждения)':'очищено: суммы и отметки «Оплачено»','ok');
 };
 </script>
 </body>

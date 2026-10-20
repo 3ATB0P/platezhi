@@ -3,48 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Оплата коммунальных платежей</title>
+<title>Сканер QR-кодов платёжек</title>
 <style>
-:root{color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f6f8;--card:#fff;--ink:#1b1f2a;--mut:#5b6770;--navy:#1f3864;--band:#d9e2ea;--bandink:#16324a;--line:#cdd5dc;--in:#fff2cc;--inink:#0000ff;--chg:#c0362c;--ok:#2f7d5b;--part:#c77700;--paid:#9a9a9a;--art:#0b57d0}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171d;--card:#1b232c;--ink:#e8edf1;--mut:#9aa7b2;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#33414e;--in:#4a3f12;--inink:#8fb4ff;--chg:#ff6b5e;--ok:#5fcf9c;--part:#f0a64a;--paid:#6f7a84;--art:#8ab4f8}}
-:root[data-theme="dark"]{--bg:#12171d;--card:#1b232c;--ink:#e8edf1;--mut:#9aa7b2;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#33414e;--in:#4a3f12;--inink:#8fb4ff;--chg:#ff6b5e;--ok:#5fcf9c;--part:#f0a64a;--paid:#6f7a84;--art:#8ab4f8}
+:root{color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f6f8;--card:#fff;--ink:#1b1f2a;--mut:#4b5660;--navy:#1f3864;--band:#d9e2ea;--bandink:#16324a;--line:#b9c3cc;--in:#fff2cc;--inink:#0a2a8a;--chg:#c0362c;--ok:#2f7d5b;--art:#0b57d0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12171d;--card:#1b232c;--ink:#f0f4f7;--mut:#a9b5bf;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#3d4b58;--in:#4a3f12;--inink:#b9d0ff;--chg:#ff6b5e;--ok:#5fcf9c;--art:#8ab4f8}}
+:root[data-theme="dark"]{--bg:#12171d;--card:#1b232c;--ink:#f0f4f7;--mut:#a9b5bf;--navy:#2b4a85;--band:#26384a;--bandink:#d3e1ee;--line:#3d4b58;--in:#4a3f12;--inink:#b9d0ff;--chg:#ff6b5e;--ok:#5fcf9c;--art:#8ab4f8}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:560px;margin:0 auto;padding:10px 8px}
-h1{font-size:17px;margin:4px 0 2px}
-.ver{font-size:11px;font-weight:400;color:var(--mut);white-space:nowrap}
-.tbl{font-size:12px;color:var(--mut);margin:0 0 8px}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:14px 12px 28px}
+h1{font-size:21px;margin:6px 0 4px}
+.ver{font-size:12px;font-weight:400;color:var(--mut);white-space:nowrap}
+.tbl{font-size:14px;color:var(--mut);margin:0 0 6px}
 .tbl a{color:var(--art);font-weight:700}
-#tblst.ok{color:var(--ok)}
-#tblst.err{color:var(--chg)}
-.note{color:var(--mut);font-size:12px;margin:0 0 8px}
-h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;padding:7px 10px;border-radius:8px 8px 0 0}
-.hd{background:var(--navy);color:#fff;font-size:10px;font-weight:700;text-align:center;border-radius:8px 8px 0 0;margin-top:10px}
-.hd+h2{margin-top:0;border-radius:0}
-.card{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px}
-.g,.row{display:grid;grid-template-columns:minmax(0,1fr) 100px 62px 40px;gap:4px;align-items:center;padding:6px 8px}
-.hd.g{padding:6px 8px}
-.row{border-top:1px solid var(--line)}
+#tblst.ok{color:var(--ok);font-weight:700}
+#tblst.err{color:var(--chg);font-weight:700}
+h2{background:var(--band);color:var(--bandink);font-size:16px;margin:16px 0 0;padding:10px 12px;border-radius:10px 10px 0 0}
+.card{background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 10px 10px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 156px;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
-.nm{font-weight:600;font-size:13px}
-.nm small{color:var(--art);font-weight:700}
-.paid .nm small{color:var(--paid)}
+.nm{font-weight:700;font-size:16px;line-height:1.25}
+.nm small{display:block;color:var(--art);font-size:15px;font-weight:700;margin-top:2px}
 .in{position:relative}
-.in input{width:100%;height:34px;font:inherit;font-size:15px;padding:2px 30px 2px 6px;border:1px solid var(--line);border-radius:6px;background:var(--in);color:var(--inink);text-align:right}
-.cam{position:absolute;right:1px;top:1px;bottom:1px;width:28px;padding:0;border:0;background:transparent;font-size:16px}
-.new,.was{text-align:right;white-space:nowrap}
-.new{font-weight:700;font-size:14px}
-.was{color:var(--mut);font-size:13px}
-.new.chg{color:var(--chg)}
-.chk{display:flex;justify-content:center}
-.chk input{width:22px;height:22px;accent-color:var(--ok)}
-.paid .nm,.paid .new,.paid .was{color:var(--paid);text-decoration:line-through}
-.paid .new.chg{color:var(--paid)}
-.ck{display:grid;grid-template-columns:1.5fr 1.2fr 1fr 1fr 1fr;gap:4px;align-items:center;padding:6px 8px;font-size:12px}
-.ck.row{border-top:1px solid var(--line)}
-.ck .n{text-align:right;white-space:nowrap}
-.st{font-weight:700}.st.ok{color:var(--ok)}.st.part{color:var(--part)}
-.cash{margin:16px 0 8px;text-align:center;color:#ff0000;font-weight:700;font-size:16px}
+.in input{width:100%;height:48px;font:inherit;font-size:20px;font-weight:600;padding:2px 44px 2px 10px;border:2px solid var(--line);border-radius:10px;background:var(--in);color:var(--inink);text-align:right}
+.in input:focus{outline:none;border-color:var(--navy)}
+.cam{position:absolute;right:2px;top:2px;bottom:2px;width:40px;padding:0;border:0;background:transparent;font-size:21px}
+#clear{display:block;width:100%;margin-top:22px;min-height:50px;border:2px solid var(--chg);border-radius:10px;background:transparent;color:var(--chg);font:inherit;font-weight:700;font-size:16px}
 #ov{position:fixed;inset:0;background:#000;z-index:9;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 #ov[hidden]{display:none}
 #ov video{flex:1;min-height:0;width:100%;object-fit:cover}
@@ -56,11 +39,10 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 </head>
 <body>
 <main>
-<h1>Оплата коммунальных платежей с округлением <small class="ver">v4 · 20.10</small></h1>
-<p class="note">Суммы по квитанциям вводятся в жёлтые ячейки столбца «Было».<br>Округление вверх:<br>1) основной платёж (всё, кроме блока «Капремонт»): разница на ЖКХ Григорьева;<br>2) платёж Порфирьева: разница на капремонт общежития.</p>
+<h1>Сканер QR-кодов платёжек <small class="ver">v5 · 20.10</small></h1>
 <p class="tbl"><span id="tblst">Таблица: не подключена</span> · <a href="#" id="tblset">настроить</a></p>
 <div id="app"></div>
-<p class="cash">ВЫБЕРИ КАТЕГОРИИ КЭШБЭК</p>
+<button id="clear" type="button">Очистить таблицу на новый месяц</button>
 </main>
 
 <div id="ov" hidden>
@@ -74,83 +56,34 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 <script>
+// Страница только считывает суммы и отправляет их в Google Таблицу. Округление, итоги и контроль оплаты ведутся в таблице.
 const BLOCKS=[
  ['Тракторостроителей 8А',[['gy','Тракторостр 8А','ЖКХ'],['gm','Тракторостр 8А','Ситиматик']]],
  ['324-я Стрелковая + Общежитие',[['py','324я Стрелков','ЖКХ'],['pk','324я Стрелков','Капремонт'],['pe','324я Стрелков','Энергосбыт'],['po','Общежитие','ЖКХ']]],
  ['Капремонт (через Альфа Банк)',[['gk','Тракторостр 8А','Капремонт'],['pc','Общежитие','Капремонт']]]
 ];
-const KS=['gy','gm','py','pk','pe','po'], KP=['py','pk','pe','po','pc'], KG=['gy','gm','gk'];
-const TOT=[['Основной платёж (ОТП Банк)',KS],['324я Стрелк + Общеж + капр',KP],['Тракторостр 8А + капремонт',KG]];
-const v={}, paid={}, R={}, T=[], C={}, LAB={Григорьев:'Тракторостроителей 8А',Порфирьев:'324я Стрелков + Общежитие'};
-const c=k=>v[k]||0, sum=(ks,o)=>ks.reduce((a,k)=>a+o(k),0), up=k=>Math.ceil(k/1e4)*1e4;
-const f=k=>(k/100).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+const R={};
 const el=(t,cls,h)=>{const e=document.createElement(t);if(cls)e.className=cls;if(h!=null)e.innerHTML=h;return e};
 const app=document.getElementById('app');
-const head=()=>el('div','hd g','<div>Объект / Статья</div><div>Было (по квитанции)</div><div>Стало (к оплате)</div><div>Оплачено</div>');
-
-app.append(head());
 BLOCKS.forEach(([h,rows])=>{
   app.append(el('h2',0,h));
   const card=el('div','card');
   rows.forEach(([k,obj,art])=>{
     const row=el('div','row');
-    row.innerHTML=`<div class="nm">${obj} <small>${art}</small></div>
-      <div class="in"><input type="text" inputmode="decimal" placeholder="0,00" aria-label="${obj} ${art}"><button class="cam" type="button" aria-label="Считать QR камерой">📷</button></div>
-      <div class="new"></div>
-      <label class="chk"><input type="checkbox" aria-label="Оплачено"></label>`;
-    const inp=row.querySelector('input[type=text]');
-    inp.oninput=()=>{const x=parseFloat(inp.value.replace(/\s/g,'').replace(',','.'));v[k]=isNaN(x)?0:Math.round(x*100);upd()};
-    inp.onchange=()=>send(k,inp.value.trim()===''?null:v[k]); // ручной ввод тоже уходит в таблицу
+    row.innerHTML=`<div class="nm">${obj}<small>${art}</small></div>
+      <div class="in"><input type="text" inputmode="decimal" placeholder="0,00" aria-label="${obj} ${art}"><button class="cam" type="button" aria-label="Считать QR камерой">📷</button></div>`;
+    const inp=row.querySelector('input');
+    inp.onchange=()=>{ // ручной ввод тоже уходит в таблицу; пустое поле очищает ячейку
+      if(inp.value.trim()===''){send(k,null);return}
+      const x=parseFloat(inp.value.replace(/\s/g,'').replace(',','.'));
+      if(!isNaN(x))send(k,Math.round(x*100));
+    };
     row.querySelector('.cam').onclick=()=>scan(k);
-    row.querySelector('input[type=checkbox]').onchange=e=>{paid[k]=e.target.checked;upd()};
-    R[k]={row,inp,nw:row.querySelector('.new')};
+    R[k]={inp};
     card.append(row);
   });
   app.append(card);
 });
-
-app.append(el('h2',0,'Итоги'));
-app.append(head());
-const tc=el('div','card');
-TOT.forEach(([name])=>{
-  const row=el('div','row');
-  row.innerHTML=`<div class="nm">${name}</div><div class="was"></div><div class="new"></div>
-    <label class="chk"><input type="checkbox" disabled aria-label="Оплачено"></label>`;
-  T.push({row,was:row.querySelector('.was'),nw:row.querySelector('.new'),cb:row.querySelector('input')});
-  tc.append(row);
-});
-app.append(tc);
-
-app.append(el('h2',0,'Проверка оплаты'));
-app.append(el('div','hd ck','<div>Проверка оплаты</div><div>Статус</div><div>К оплате (итог)</div><div>Отмечено галочками</div><div>Осталось</div>'));
-const pc=el('div','card');
-['Григорьев','Порфирьев','Всего'].forEach(n=>{
-  const row=el('div','ck row',`<div><b>${LAB[n]||n}</b></div><div class="st"></div><div class="n"></div><div class="n"></div><div class="n"></div>`);
-  const [,st,a,b,d]=row.children; C[n]={st,s:[a,b,d]};
-  pc.append(row);
-});
-app.append(pc);
-
-function upd(){
-  const S=sum(KS,c), P=sum(KP,c), n={};
-  [...KP,...KS,'gk'].forEach(k=>n[k]=c(k));
-  n.gy+=up(S)-S; n.pc+=up(P)-P;
-  for(const k in R){const r=R[k];
-    r.nw.textContent=f(n[k]); r.nw.classList.toggle('chg',n[k]!==c(k));
-    r.row.classList.toggle('paid',!!paid[k]);}
-  const olds=[S,P,sum(KG,c)];
-  TOT.forEach(([,ks],i)=>{const t=T[i],all=ks.every(k=>paid[k]),nv=sum(ks,k=>n[k]);
-    t.was.textContent=f(olds[i]); t.nw.textContent=f(nv); t.nw.classList.toggle('chg',nv!==olds[i]);
-    t.cb.checked=all; t.row.classList.toggle('paid',all);});
-  const due={Григорьев:sum(KG,k=>n[k]),Порфирьев:sum(KP,k=>n[k])};
-  const got={Григорьев:sum(KG,k=>paid[k]?n[k]:0),Порфирьев:sum(KP,k=>paid[k]?n[k]:0)};
-  due['Всего']=due.Григорьев+due.Порфирьев; got['Всего']=got.Григорьев+got.Порфирьев;
-  for(const nm in C){const left=due[nm]-got[nm],
-    s=!got[nm]?['Не оплачено','']:left?['Частично','part']:['Всё оплачено','ok'];
-    C[nm].st.textContent=s[0]; C[nm].st.className='st '+s[1];
-    C[nm].s[0].textContent=f(due[nm]); C[nm].s[1].textContent=f(got[nm]); C[nm].s[2].textContent=f(left);}
-}
-upd();
 
 /* ---- Передача сумм в Google Таблицу через скрипт Apps Script (адрес и секретное слово хранятся только в браузере телефона) ---- */
 let SU='', ST='';
@@ -193,7 +126,7 @@ function parseSum(t){
 }
 function got(text){
   const k=parseSum(text); if(k==null){msg.textContent='В QR нет суммы: '+text.slice(0,100);return false}
-  v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); send(target,k); stop(); return true;
+  R[target].inp.value=(k/100).toFixed(2).replace('.',','); send(target,k); stop(); return true;
 }
 function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true}
 // из найденных кодов берём тот, где есть Sum=; если формат не QR — помечаем его
@@ -256,6 +189,17 @@ async function scan(k){
   }catch(e){msg.textContent='Нет доступа к камере ('+(e.name||'ошибка')+'). Разрешите камеру в браузере.'}
 }
 document.getElementById('close').onclick=stop;
+
+// Новый месяц: очищаем поля на странице и жёлтые ячейки «Было» в таблице
+document.getElementById('clear').onclick=async()=>{
+  if(!confirm('Очистить поля на странице'+(SU&&ST?' и все суммы «Было» в таблице':'')+'?'))return;
+  for(const k in R)R[k].inp.value='';
+  if(!SU||!ST){tbl('поля очищены');return}
+  tbl('очищаю таблицу…');
+  const res=await Promise.all(Object.keys(R).map(k=>post({token:ST,key:k,value:null})));
+  const bad=res.filter(j=>!j.ok);
+  bad.length?tbl('ошибка при очистке: '+bad[0].error,'err'):tbl(res.some(j=>j.blind)?'очистка отправлена (без подтверждения)':'очищено ячеек: '+res.length,'ok');
+};
 </script>
 </body>
 </html>

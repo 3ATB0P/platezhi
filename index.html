@@ -13,6 +13,10 @@ body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.3 system-ui,-app
 main{max-width:560px;margin:0 auto;padding:10px 8px}
 h1{font-size:17px;margin:4px 0 2px}
 .ver{font-size:11px;font-weight:400;color:var(--mut);white-space:nowrap}
+.tbl{font-size:12px;color:var(--mut);margin:0 0 8px}
+.tbl a{color:var(--art);font-weight:700}
+#tblst.ok{color:var(--ok)}
+#tblst.err{color:var(--chg)}
 .note{color:var(--mut);font-size:12px;margin:0 0 8px}
 h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;padding:7px 10px;border-radius:8px 8px 0 0}
 .hd{background:var(--navy);color:#fff;font-size:10px;font-weight:700;text-align:center;border-radius:8px 8px 0 0;margin-top:10px}
@@ -52,8 +56,9 @@ h2{background:var(--band);color:var(--bandink);font-size:14px;margin:10px 0 0;pa
 </head>
 <body>
 <main>
-<h1>Оплата коммунальных платежей с округлением <small class="ver">v3 · 19.10</small></h1>
+<h1>Оплата коммунальных платежей с округлением <small class="ver">v4 · 20.10</small></h1>
 <p class="note">Суммы по квитанциям вводятся в жёлтые ячейки столбца «Было».<br>Округление вверх:<br>1) основной платёж (всё, кроме блока «Капремонт»): разница на ЖКХ Григорьева;<br>2) платёж Порфирьева: разница на капремонт общежития.</p>
+<p class="tbl"><span id="tblst">Таблица: не подключена</span> · <a href="#" id="tblset">настроить</a></p>
 <div id="app"></div>
 <p class="cash">ВЫБЕРИ КАТЕГОРИИ КЭШБЭК</p>
 </main>
@@ -95,6 +100,7 @@ BLOCKS.forEach(([h,rows])=>{
       <label class="chk"><input type="checkbox" aria-label="Оплачено"></label>`;
     const inp=row.querySelector('input[type=text]');
     inp.oninput=()=>{const x=parseFloat(inp.value.replace(/\s/g,'').replace(',','.'));v[k]=isNaN(x)?0:Math.round(x*100);upd()};
+    inp.onchange=()=>send(k,inp.value.trim()===''?null:v[k]); // ручной ввод тоже уходит в таблицу
     row.querySelector('.cam').onclick=()=>scan(k);
     row.querySelector('input[type=checkbox]').onchange=e=>{paid[k]=e.target.checked;upd()};
     R[k]={row,inp,nw:row.querySelector('.new')};
@@ -146,6 +152,35 @@ function upd(){
 }
 upd();
 
+/* ---- Передача сумм в Google Таблицу через скрипт Apps Script (адрес и секретное слово хранятся только в браузере телефона) ---- */
+let SU='', ST='';
+try{SU=localStorage.getItem('gsu')||'';ST=localStorage.getItem('gst')||''}catch(e){}
+const tblEl=document.getElementById('tblst');
+function tbl(text,cls){tblEl.textContent='Таблица: '+text;tblEl.className=cls||''}
+function tblInit(){SU&&ST?tbl('подключена'):tbl('не подключена')}
+tblInit();
+async function post(body){ // сначала обычный запрос (читаем ответ), при ошибке CORS — без ответа
+  const o={method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)};
+  try{const r=await fetch(SU,o);return await r.json()}
+  catch(e){try{await fetch(SU,{...o,mode:'no-cors'});return {ok:true,blind:true}}catch(e2){return {ok:false,error:'нет связи'}}}
+}
+async function send(k,kop){
+  if(!SU||!ST)return;
+  tbl('отправляю…');
+  const j=await post({token:ST,key:k,value:kop==null?null:kop/100});
+  j.ok?tbl(j.blind?'отправлено (без подтверждения)':'записано в '+j.cell,'ok'):tbl('ошибка: '+j.error,'err');
+}
+document.getElementById('tblset').onclick=async e=>{
+  e.preventDefault();
+  const u=prompt('Адрес веб-приложения Google Apps Script (заканчивается на /exec). Пустое поле отключит передачу:',SU);if(u===null)return;
+  let t=ST;if(u.trim()){t=prompt('Секретное слово:',ST);if(t===null)return}
+  SU=u.trim();ST=(t||'').trim();
+  try{localStorage.setItem('gsu',SU);localStorage.setItem('gst',ST)}catch(e){}
+  if(!SU||!ST){tblInit();return}
+  tbl('проверяю…');const j=await post({token:ST,ping:true});
+  j.ok?tbl(j.blind?'адрес сохранён (ответ не проверен)':'подключена','ok'):tbl('ошибка: '+j.error,'err');
+};
+
 /* ---- Живая камера: встроенный BarcodeDetector, запасной jsQR ---- */
 const ov=document.getElementById('ov'), vid=document.getElementById('vid'), msg=document.getElementById('msg'), stat=document.getElementById('stat'), zoomEl=document.getElementById('zoom');
 let statBase='', seenInfo='', zoomPref=1.5; // начальное приближение 1,5×; дальше запоминается выбранное ползунком
@@ -158,7 +193,7 @@ function parseSum(t){
 }
 function got(text){
   const k=parseSum(text); if(k==null){msg.textContent='В QR нет суммы: '+text.slice(0,100);return false}
-  v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); stop(); return true;
+  v[target]=k; R[target].inp.value=(k/100).toFixed(2).replace('.',','); upd(); send(target,k); stop(); return true;
 }
 function stop(){clearTimeout(timer);if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;ov.hidden=true;zoomEl.hidden=true}
 // из найденных кодов берём тот, где есть Sum=; если формат не QR — помечаем его
